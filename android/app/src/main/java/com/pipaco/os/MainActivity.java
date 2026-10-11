@@ -619,6 +619,66 @@ public class MainActivity extends FragmentActivity {
         }
     }
 
+    /** Escribe el archivo en cache/export y lo comparte (WhatsApp, correo o el selector del sistema). */
+    String compartir(String nombre, String mime, String b64, String asunto, String texto, String email, String destino) {
+        try {
+            if (mime == null || mime.isEmpty()) mime = "application/octet-stream";
+            mime = mime.split(";")[0].trim();
+            nombre = (nombre == null || nombre.isEmpty() ? "archivo" : nombre).replaceAll("[\\\\/:*?\"<>|]", "_");
+            File dir = new File(getCacheDir(), "export");
+            dir.mkdirs();
+            File[] viejos = dir.listFiles();
+            if (viejos != null) for (File v : viejos) if (System.currentTimeMillis() - v.lastModified() > 86400000L) v.delete();
+            File f = new File(dir, nombre);
+            try (FileOutputStream os = new FileOutputStream(f)) { os.write(Base64.decode(b64, Base64.DEFAULT)); }
+            Uri uri = FileProvider.getUriForFile(this, "com.pipaco.os.fileprovider", f);
+            final Intent it = intentCompartir(getPackageManager(), uri, mime, asunto, texto, email, destino);
+            runOnUiThread(() -> {
+                try { startActivity(it); }
+                catch (ActivityNotFoundException e) {
+                    try { startActivity(Intent.createChooser(intentCompartir(null, uri, it.getType(), asunto, texto, email, ""), "Compartir")); }
+                    catch (Exception e2) { Toast.makeText(this, "No hay apps para compartir", Toast.LENGTH_LONG).show(); }
+                }
+            });
+            return "OK";
+        } catch (Exception e) {
+            return "ERROR: " + e.getMessage();
+        }
+    }
+
+    /** Arma el intent de envío. pm == null → sin paquete fijo (para el selector). */
+    static Intent intentCompartir(PackageManager pm, Uri uri, String mime, String asunto, String texto, String email, String destino) {
+        Intent send = new Intent(Intent.ACTION_SEND);
+        send.setType(mime);
+        send.putExtra(Intent.EXTRA_STREAM, uri);
+        send.setClipData(android.content.ClipData.newRawUri("", uri));
+        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        if (asunto != null && !asunto.isEmpty()) send.putExtra(Intent.EXTRA_SUBJECT, asunto);
+        if (texto != null && !texto.isEmpty()) send.putExtra(Intent.EXTRA_TEXT, texto);
+        if (email != null && !email.isEmpty()) send.putExtra(Intent.EXTRA_EMAIL, new String[]{email});
+        if (pm != null && "whatsapp".equals(destino)) {
+            for (String pkg : new String[]{"com.whatsapp", "com.whatsapp.w4b"}) {
+                if (instalado(pm, pkg)) { send.setPackage(pkg); return send; }
+            }
+        }
+        if (pm != null && "correo".equals(destino)) {
+            Intent sel = new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"));
+            if (sel.resolveActivity(pm) != null) {
+                send.setSelector(sel);
+                Intent ch = Intent.createChooser(send, "Enviar por correo");
+                ch.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                return ch;
+            }
+        }
+        Intent ch = Intent.createChooser(send, "Compartir");
+        ch.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        return ch;
+    }
+
+    static boolean instalado(PackageManager pm, String pkg) {
+        try { pm.getPackageInfo(pkg, 0); return true; } catch (Exception e) { return false; }
+    }
+
     /** Disponible en JS como window.PipaCoAndroid */
     private class Puente {
         @JavascriptInterface
@@ -631,6 +691,10 @@ public class MainActivity extends FragmentActivity {
             String r = guardar(nombre, mime, b64);
             if (!r.startsWith("ERROR")) runOnUiThread(() -> Toast.makeText(MainActivity.this, "Guardado en " + r, Toast.LENGTH_LONG).show());
             return r;
+        }
+        @JavascriptInterface
+        public String shareFile(String nombre, String mime, String b64, String asunto, String texto, String email, String destino) {
+            return compartir(nombre, mime, b64, asunto, texto, email, destino);
         }
         @JavascriptInterface
         public String version() { return BuildConfig.VERSION_NAME; }

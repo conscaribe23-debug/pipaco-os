@@ -1,7 +1,7 @@
 /* PipaCo OS PRO — service worker
    Sube VERSION en cada publicación para que los teléfonos muestren
    "Hay una nueva versión, toca para actualizar". */
-const VERSION = '2.2.2';
+const VERSION = '2.3.0';
 const CACHE = 'pipaco-os-' + VERSION;
 const CORE = [
   './',

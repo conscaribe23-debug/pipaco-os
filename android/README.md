@@ -45,3 +45,7 @@ del Release de GitHub, verifica SHA-256 y paquete, y abre el instalador de Andro
    - crea el Release `vX.Y.Z` en GitHub con el APK,
    - escribe `version.json` con la URL y el sha256, hace commit y push.
 4. En 1–2 minutos GitHub Pages sirve el nuevo `version.json` y los teléfonos verán el aviso.
+
+## Comprobantes a clientes (2.3.0)
+- Puente `PipaCoAndroid.shareFile(nombre, mime, base64, asunto, texto, email, destino)`: guarda en `cache/export` (FileProvider) y abre WhatsApp (`destino="whatsapp"`, directo si está instalado), correo (`"correo"`, selector de apps de correo con destinatario/asunto) o el selector del sistema. Probado en `ShareTest`.
+- El botón "📄 PDF" usa `saveFile` (Descargas/PipaCo).
