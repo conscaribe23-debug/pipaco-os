@@ -7,3 +7,4 @@ keystore/
 *.keystore
 keystore.properties
 app/src/main/assets/www/
+dist/
