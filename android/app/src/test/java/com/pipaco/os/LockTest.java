@@ -121,4 +121,73 @@ public class LockTest {
         assertTrue("debe mostrarse el diálogo de huella (FingerprintDialogFragment)", hayBiometricFragment(a));
         System.out.println("LOG27: " + a.registro().replace("\n", " | ") + " frags=" + a.getSupportFragmentManager().getFragments());
     }
+
+    private androidx.biometric.BiometricPrompt.AuthenticationCallback callback(MainActivity a) throws Exception {
+        Object vm = new androidx.lifecycle.ViewModelProvider(a).get(Class.forName("androidx.biometric.BiometricViewModel").asSubclass(androidx.lifecycle.ViewModel.class));
+        java.lang.reflect.Method g = vm.getClass().getDeclaredMethod("getClientCallback"); g.setAccessible(true);
+        return (androidx.biometric.BiometricPrompt.AuthenticationCallback) g.invoke(vm);
+    }
+    private androidx.biometric.BiometricPrompt.AuthenticationResult resultado(int tipo) throws Exception {
+        java.lang.reflect.Constructor<androidx.biometric.BiometricPrompt.AuthenticationResult> k =
+            androidx.biometric.BiometricPrompt.AuthenticationResult.class.getDeclaredConstructor(androidx.biometric.BiometricPrompt.CryptoObject.class, int.class);
+        k.setAccessible(true);
+        return k.newInstance(null, tipo);
+    }
+    private void setUrl(MainActivity a) throws Exception { Field x = MainActivity.class.getDeclaredField("currentUrl"); x.setAccessible(true); x.set(a, "https://appassets.androidplatform.net/assets/www/index.html"); }
+
+    @Test @Config(sdk = 34)
+    public void huellaOk_entregaTokenUnaSolaVez() throws Exception {
+        MainActivity a = abrir(true, true);
+        callback(a).onAuthenticationSucceeded(resultado(androidx.biometric.BiometricPrompt.AUTHENTICATION_RESULT_TYPE_BIOMETRIC));
+        shadowOf(Looper.getMainLooper()).idle();
+        assertFalse((Boolean) f(a, "locked"));
+        assertNotNull(urlCargada(a));
+        setUrl(a);
+        String t = a.consumirToken();
+        assertTrue("token de 64 hex", t.matches("[0-9a-f]{64}"));
+        assertEquals("un solo uso", "", a.consumirToken());
+    }
+
+    @Test @Config(sdk = 34)
+    public void tokenSoloParaLaAppDelApk() throws Exception {
+        MainActivity a = abrir(true, true);
+        callback(a).onAuthenticationSucceeded(resultado(androidx.biometric.BiometricPrompt.AUTHENTICATION_RESULT_TYPE_BIOMETRIC));
+        shadowOf(Looper.getMainLooper()).idle();
+        Field x = MainActivity.class.getDeclaredField("currentUrl"); x.setAccessible(true); x.set(a, "https://evil.example/");
+        assertEquals("", a.consumirToken());
+    }
+
+    @Test @Config(sdk = 34)
+    public void alternativaCorreo_noEntregaToken() throws Exception {
+        MainActivity a = abrir(true, true);
+        callback(a).onAuthenticationError(androidx.biometric.BiometricPrompt.ERROR_LOCKOUT, "demasiados intentos");
+        shadowOf(Looper.getMainLooper()).idle();
+        ((android.widget.Button) f(a, "btnCorreo")).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertFalse((Boolean) f(a, "locked"));
+        setUrl(a);
+        assertEquals("con correo no hay entrada directa", "", a.consumirToken());
+    }
+
+    @Test @Config(sdk = 34)
+    public void cerrarSesionDesdeWeb_vuelveABloquear() throws Exception {
+        MainActivity a = abrir(true, true);
+        callback(a).onAuthenticationSucceeded(resultado(androidx.biometric.BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL));
+        shadowOf(Looper.getMainLooper()).idle();
+        assertFalse((Boolean) f(a, "locked"));
+        a.bloquearDesdeWeb();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertTrue((Boolean) f(a, "locked"));
+        assertEquals(View.VISIBLE, ((View) f(a, "cover")).getVisibility());
+        setUrl(a);
+        assertEquals("bloqueada: sin token", "", a.consumirToken());
+        System.out.println("LOGlock: " + a.registro().replace("\n", " | "));
+    }
+
+    @Test @Config(sdk = 34)
+    public void sinBloqueoDePantalla_noHayEntradaDirecta() throws Exception {
+        MainActivity a = abrir(false, null);
+        setUrl(a);
+        assertEquals("", a.consumirToken());
+    }
 }

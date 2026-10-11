@@ -114,6 +114,11 @@ public class MainActivity extends FragmentActivity {
                 return loader.shouldInterceptRequest(req.getUrl());
             }
             @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                currentUrl = url == null ? "" : url;
+            }
+            @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 if (!autoCheckDone && url != null && url.contains(HOST)) { autoCheckDone = true; updater.autoCheckOncePerDay(); }
@@ -156,6 +161,39 @@ public class MainActivity extends FragmentActivity {
     private TextView coverDiag;
     private Button btnPin, btnCorreo;
     private int fallos = 0;
+    // "Solo la huella": token de un solo uso que la app web consume tras un desbloqueo nativo.
+    private volatile String unlockToken = null;
+    private volatile long unlockTokenAt = 0L;
+    private volatile String currentUrl = "";
+    private static final long TOKEN_TTL_MS = 120_000L;
+
+    private void emitirToken() {
+        byte[] b = new byte[32];
+        new java.security.SecureRandom().nextBytes(b);
+        StringBuilder sb = new StringBuilder();
+        for (byte x : b) sb.append(String.format("%02x", x));
+        unlockToken = sb.toString();
+        unlockTokenAt = SystemClock.elapsedRealtime();
+    }
+
+    synchronized String consumirToken() {
+        String t = unlockToken;
+        unlockToken = null;
+        if (t == null || locked) return "";
+        if (SystemClock.elapsedRealtime() - unlockTokenAt > TOKEN_TTL_MS) return "";
+        Uri u = Uri.parse(currentUrl == null ? "" : currentUrl);
+        if (!HOST.equals(u.getHost())) return ""; // solo la app incluida en el APK
+        return t;
+    }
+
+    /** Llamado desde la web (Cerrar sesión / fin del día): vuelve a la pantalla de huella. */
+    void bloquearDesdeWeb() {
+        if (locked) return;
+        if (!pantallaConBloqueo()) { js("AUTH.pantalla()"); return; } // sin bloqueo del teléfono: contraseña de PipaCo
+        bloquear("sesión cerrada desde la app");
+        autoPrompt = false;
+        root.post(this::pedirDesbloqueo);
+    }
 
     private LinearLayout crearPantallaBloqueo() {
         float d = getResources().getDisplayMetrics().density;
@@ -190,7 +228,7 @@ public class MainActivity extends FragmentActivity {
         btnPin.setVisibility(View.GONE);
         l.addView(btnPin);
         btnCorreo = boton("✉️ Entrar con correo y contraseña de PipaCo", false, d);
-        btnCorreo.setOnClickListener(v -> { cancelarPrompt(); desbloquear("correo y contraseña (alternativa)", true); });
+        btnCorreo.setOnClickListener(v -> { cancelarPrompt(); desbloquear("correo y contraseña (alternativa)", true, false); });
         btnCorreo.setVisibility(View.GONE);
         l.addView(btnCorreo);
         Button salir = new Button(this);
@@ -230,7 +268,7 @@ public class MainActivity extends FragmentActivity {
                 authInProgress = false;
                 int tipo = r.getAuthenticationType();
                 desbloquear(tipo == BiometricPrompt.AUTHENTICATION_RESULT_TYPE_BIOMETRIC ? "huella"
-                        : tipo == BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL ? "PIN/patrón del teléfono" : "desbloqueo del teléfono (tipo " + tipo + ")", false);
+                        : tipo == BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL ? "PIN/patrón del teléfono" : "desbloqueo del teléfono (tipo " + tipo + ")", false, true);
             }
             @Override
             public void onAuthenticationError(int code, CharSequence msg) {
@@ -321,7 +359,7 @@ public class MainActivity extends FragmentActivity {
         if (conAlternativas || fallos > 0 || !pantallaConBloqueo()) btnCorreo.setVisibility(View.VISIBLE);
     }
 
-    private void bloquear() {
+    private void bloquear(String motivo) {
         locked = true;
         autoPrompt = true;
         cover.setVisibility(View.VISIBLE);
@@ -330,15 +368,16 @@ public class MainActivity extends FragmentActivity {
         coverDiag.setText(diagnostico());
         btnPin.setVisibility(View.GONE);
         btnCorreo.setVisibility(View.GONE);
-        registrar("bloqueada (volvió tras más de 1 min)");
+        registrar("bloqueada: " + motivo);
     }
 
-    private void desbloquear(String metodo, boolean forzarLoginInterno) {
+    private void desbloquear(String metodo, boolean forzarLoginInterno, boolean nativo) {
         if (!locked) return;
         locked = false;
         authInProgress = false;
         fallos = 0;
-        registrar("desbloqueada con " + metodo);
+        registrar("desbloqueada con " + metodo + (nativo ? " (entra directo)" : " (pide contraseña PipaCo)"));
+        if (nativo) emitirToken(); else unlockToken = null;
         cover.setVisibility(View.GONE);
         web.setVisibility(View.VISIBLE);
         if (!contentLoaded) {
@@ -347,7 +386,9 @@ public class MainActivity extends FragmentActivity {
             else web.loadUrl(START);
             pendingState = null;
         } else if (forzarLoginInterno) {
-            js("try{sessionStorage.removeItem('pipaco_ses_v1');AUTH.cerrarSesion()}catch(e){}");
+            js("try{sessionStorage.removeItem('pipaco_ses_v1');AUTH.pantalla()}catch(e){}");
+        } else if (nativo) {
+            js("try{typeof AUTH!=='undefined'&&AUTH.nativo&&AUTH.nativo()}catch(e){}");
         }
         Toast.makeText(this, "🔓 Desbloqueado con " + metodo, Toast.LENGTH_SHORT).show();
     }
@@ -369,7 +410,7 @@ public class MainActivity extends FragmentActivity {
         // Único caso que abre sin verificar: el teléfono NO tiene PIN/patrón/contraseña (aviso visible).
         if (!pantallaConBloqueo()) {
             final String diag = diagnostico();
-            desbloquear("teléfono sin bloqueo de pantalla", false);
+            desbloquear("teléfono sin bloqueo de pantalla", false, false);
             if (!noLockNoticeShown) {
                 noLockNoticeShown = true;
                 new AlertDialog.Builder(this)
@@ -463,7 +504,7 @@ public class MainActivity extends FragmentActivity {
     protected void onStart() {
         super.onStart();
         if (!locked && backgroundSince > 0 && SystemClock.elapsedRealtime() - backgroundSince >= RELOCK_MS && pantallaConBloqueo()) {
-            bloquear();
+            bloquear("volvió tras más de 1 min");
         }
         backgroundSince = 0L;
     }
@@ -514,7 +555,7 @@ public class MainActivity extends FragmentActivity {
         super.onActivityResult(req, res, data);
         if (req == REQ_KEYGUARD) {
             authInProgress = false;
-            if (res == RESULT_OK) desbloquear("PIN/patrón del teléfono", false);
+            if (res == RESULT_OK) desbloquear("PIN/patrón del teléfono", false, true);
             else { registrar("PIN del teléfono cancelado (resultado " + res + ")"); mostrarError("Desbloqueo cancelado. Toca “Desbloquear” para intentar de nuevo.", true); }
             return;
         }
@@ -593,6 +634,10 @@ public class MainActivity extends FragmentActivity {
         }
         @JavascriptInterface
         public String version() { return BuildConfig.VERSION_NAME; }
+        @JavascriptInterface
+        public String consumeUnlock() { return consumirToken(); }
+        @JavascriptInterface
+        public void lock() { runOnUiThread(MainActivity.this::bloquearDesdeWeb); }
         @JavascriptInterface
         public String diag() { return diagnostico() + "\n\nRegistro de desbloqueo:\n" + registro(); }
         @JavascriptInterface
