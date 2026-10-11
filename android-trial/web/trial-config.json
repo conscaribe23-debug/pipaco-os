@@ -1,0 +1,15 @@
+{
+ "_comentario": "ÚNICO lugar para cambiar los límites de PipaCo Prueba. Después: ./gradlew assembleRelease (o python3 web/build_trial.py).",
+ "dias": 14,
+ "maxVentas": 30,
+ "maxClientes": 5,
+ "maxComprobantes": 10,
+ "maxProductos": 10,
+ "marcaPdf": "VERSIÓN DE PRUEBA",
+ "exportarExcelCsv": false,
+ "respaldoJson": false,
+ "contabilidadAvanzada": false,
+ "datosDeEjemplo": false,
+ "correo": "conscaribe23@gmail.com",
+ "whatsapp": ""
+}

@@ -1,0 +1,6 @@
+.prueba-ban{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#172554;border:1px solid #3b82f6;color:#dbeafe;padding:9px 12px;border-radius:12px;margin-bottom:12px;font-size:13px}
+.prueba-ban.fin{background:#450a0a;border-color:#ef4444;color:#fecaca}
+.prueba-ban .uso{color:#93c5fd;font-size:12px}
+.prueba-ban.fin .uso{color:#fca5a5}
+.lock-card{border:1px dashed #a16207!important;background:linear-gradient(180deg,#1c1917,#18181b)!important}
+.lock-card li{margin:4px 0}
