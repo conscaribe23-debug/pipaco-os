@@ -1,0 +1,50 @@
+plugins { id 'com.android.application' }
+
+// Empaqueta la DEMO web (demo/index.html + demo/img) para que funcione sin internet.
+def repo = rootProject.file('..')
+tasks.register('syncWeb', Copy) {
+    into file('src/main/assets')
+    from(new File(repo, 'demo')) { include 'index.html', 'img/**'; into 'www' }
+    from(repo) { include 'icons/favicon-64.png', 'icons/icon-192.png' }
+}
+tasks.named('preBuild') { dependsOn 'syncWeb' }
+
+// Firma con el keystore DE LA DEMO (distinto al de la app real). keystore.properties no se sube.
+def ksFile = rootProject.file('keystore.properties')
+def ks = new Properties()
+if (ksFile.exists()) ksFile.withInputStream { ks.load(it) }
+
+android {
+    buildFeatures { buildConfig true }
+    namespace 'com.pipaco.demo'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.pipaco.demo'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+    }
+    signingConfigs {
+        release {
+            if (ksFile.exists()) {
+                storeFile file(ks['storeFile'])
+                storePassword ks['storePassword']
+                keyAlias ks['keyAlias']
+                keyPassword ks['keyPassword']
+            }
+        }
+    }
+    buildTypes { release { minifyEnabled false; if (ksFile.exists()) signingConfig signingConfigs.release } }
+    testOptions { unitTests { includeAndroidResources = true; all { maxHeapSize = '1g' } } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+
+dependencies {
+    implementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.22')
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.core:core:1.13.1'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.13'
+    testImplementation 'androidx.test:core:1.6.1'
+}
