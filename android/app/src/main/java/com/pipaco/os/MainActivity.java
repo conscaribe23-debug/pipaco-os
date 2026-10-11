@@ -182,6 +182,8 @@ public class MainActivity extends Activity {
     /** Guarda en la carpeta Descargas del teléfono. Devuelve la ruta o "ERROR: ...". */
     private String guardar(String nombre, String mime, String b64) {
         try {
+            if (mime == null || mime.isEmpty()) mime = "application/octet-stream";
+            mime = mime.split(";")[0].trim();
             nombre = nombre.replaceAll("[\\\\/:*?\"<>|]", "_");
             byte[] bytes = Base64.decode(b64, Base64.DEFAULT);
             if (Build.VERSION.SDK_INT >= 29) {
