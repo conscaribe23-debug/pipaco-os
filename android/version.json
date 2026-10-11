@@ -1,7 +1,7 @@
 {
-  "versionCode": 4,
-  "versionName": "2.2.2",
-  "apkUrl": "https://github.com/conscaribe23-debug/pipaco-os/releases/download/v2.2.2/PipaCo-v2.2.2.apk",
-  "sha256": "c7be710bd17269b6b3e0035341785a3a738d683f351da7c2b89cdcdd179edfe5",
-  "notes": "Ahora entras solo con tu huella (o el PIN del teléfono), sin escribir la contraseña de PipaCo. La contraseña queda como respaldo. Cerrar sesión vuelve a pedir la huella."
+  "versionCode": 5,
+  "versionName": "2.3.0",
+  "apkUrl": "https://github.com/conscaribe23-debug/pipaco-os/releases/download/v2.3.0/PipaCo-v2.3.0.apk",
+  "sha256": "17cf7424076f35ec6e8612db2ccdb7965777c183ece3dc181b50021798e7751e",
+  "notes": "2.3.0: Nuevo módulo 'Facturas a clientes': comprobantes de venta numerados con datos de Pip & Co (RUC 4-769-1592 DV 36), PDF, envío por WhatsApp/correo, anulación, Excel y enlace al CUFE de la DGI."
 }
