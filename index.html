@@ -453,7 +453,9 @@ const IDB={db:null,open(){return new Promise((res,rej)=>{if(this.db)return res(t
 function comprimir(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const m=1400;let{width:w,height:h}=im;if(w>m||h>m){const s=m/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s)}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);res(c.toDataURL('image/jpeg',0.72))};im.onerror=rej;im.src=fr.result};fr.onerror=rej;fr.readAsDataURL(file)})}
 
 /* ---------- Exportar ---------- */
-function descargar(nombre,contenido,tipo){const b=new Blob([contenido],{type:tipo});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nombre;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+function descargar(nombre,contenido,tipo){const b=new Blob([contenido],{type:tipo});
+ if(window.PipaCoAndroid&&PipaCoAndroid.saveFile){const fr=new FileReader();fr.onload=()=>{try{const r=PipaCoAndroid.saveFile(nombre,tipo||'application/octet-stream',String(fr.result).split(',')[1]||'');toast(r&&r.indexOf('ERROR')!==0?'💾 Guardado en Descargas: '+esc(nombre):'No se pudo guardar el archivo'+(r?': '+esc(r):''),!(r&&r.indexOf('ERROR')!==0))}catch(e){toast('No se pudo guardar el archivo',1)}};fr.readAsDataURL(b);return}
+ const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nombre;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
 function csv(rows){return'\ufeff'+rows.map(r=>r.map(c=>{c=c==null?'':String(c);return/[",;\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(',')).join('\r\n')}
 function xls(hojas){const x=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
  return`<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="h"><Font ss:Bold="1"/><Interior ss:Color="#FBBF24" ss:Pattern="Solid"/></Style><Style ss:ID="m"><NumberFormat ss:Format="#,##0.00"/></Style></Styles>`+
@@ -749,7 +751,7 @@ const AUTH={
    No toca los datos (localStorage / IndexedDB) ni el acceso. */
 const PWA={
  deferred:null,reg:null,_recargando:false,
- standalone(){return (window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true},
+ standalone(){return !!window.PipaCoAndroid||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true},
  ios(){const ua=navigator.userAgent||'';return /iPad|iPhone|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)},
  iosNoSafari(){const ua=navigator.userAgent||'';return PWA.ios()&&/CriOS|FxiOS|EdgiOS|OPiOS|GSA|Instagram|FBAN|FBAV/.test(ua)},
  puede(){return !PWA.standalone()&&(!!PWA.deferred||PWA.ios())},
@@ -776,7 +778,7 @@ const PWA={
  aviso(w){if(document.getElementById('pwa-upd'))return;const d=document.createElement('div');d.id='pwa-upd';d.setAttribute('role','button');d.textContent='🔄 Hay una nueva versión, toca para actualizar';
   d.onclick=()=>{d.textContent='Actualizando…';PWA._recargando=true;const t=(PWA.reg&&PWA.reg.waiting)||w;if(t)t.postMessage({type:'SKIP_WAITING'});else location.reload()};document.body.appendChild(d)},
  registrar(){
-  if(!('serviceWorker' in navigator)||!/^https?:$/.test(location.protocol))return;
+  if(window.PipaCoAndroid||!('serviceWorker' in navigator)||!/^https?:$/.test(location.protocol))return;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(PWA._recargando){PWA._recargando=false;location.reload()}});
   navigator.serviceWorker.register('sw.js').then(reg=>{PWA.reg=reg;
    const vigilar=w=>{if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)PWA.aviso(w)})};

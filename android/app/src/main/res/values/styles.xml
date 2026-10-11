@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pipaco_bg">#09090B</color>
+    <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/pipaco_bg</item>
+        <item name="android:colorPrimary">#09090B</item>
+        <item name="android:colorPrimaryDark">#09090B</item>
+        <item name="android:colorAccent">#FBBF24</item>
+        <item name="android:statusBarColor">#09090B</item>
+        <item name="android:navigationBarColor">#18181B</item>
+    </style>
+</resources>
