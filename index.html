@@ -5,8 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#09090b">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PipaCo">
+<meta name="application-name" content="PipaCo">
+<meta name="description" content="PipaCo OS PRO: ventas, inventario, compras, depósitos y contabilidad para tu negocio de agua de pipa.">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 <title>PipaCo OS PRO</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥥</text></svg>">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>:root{--bg:#09090b;--card:#18181b;--card2:#202024;--bd:#2e2e33;--tx:#f4f4f5;--mu:#a1a1aa;--ac:#fbbf24;--ac2:#f59e0b;--ok:#22c55e;--bad:#ef4444;--warn:#f97316;--info:#38bdf8}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px}
 a{color:var(--ac)}button,input,select,textarea{font:inherit;color:inherit}
@@ -105,6 +114,22 @@ table.rt tr.tot td{font-weight:700;border-top:2px solid var(--bd)}
  .ithead{display:none}
  .modal-bg{padding:0}.modal{border-radius:0;min-height:100vh;max-width:none}
 }
+/* ---- App instalada: zonas seguras (notch / isla / barra de gestos) ---- */
+body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+main{padding-top:calc(20px + env(safe-area-inset-top))}
+.side{padding-top:env(safe-area-inset-top)}
+#authov{padding-top:calc(16px + env(safe-area-inset-top))!important;padding-bottom:calc(16px + env(safe-area-inset-bottom))!important}
+.modal-bg{padding-top:calc(20px + env(safe-area-inset-top))}
+.sheet>div{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+.toast{bottom:calc(90px + env(safe-area-inset-bottom))}
+@media(max-width:760px){main{padding-top:calc(14px + env(safe-area-inset-top))}.modal-bg{padding:env(safe-area-inset-top) 0 0}.modal{padding-bottom:calc(18px + env(safe-area-inset-bottom))}}
+#pwa-inst{position:fixed;right:calc(14px + env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom));z-index:10001;display:flex;align-items:center;gap:2px;background:var(--ac);color:#111;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.55);font-weight:700}
+#pwa-inst button{background:none;border:0;color:#111;cursor:pointer;font-weight:700;padding:10px 6px 10px 14px;font-size:14px}
+#pwa-inst button.x{padding:10px 12px 10px 4px;font-weight:400;opacity:.7}
+@media(max-width:760px){#pwa-inst{bottom:calc(76px + env(safe-area-inset-bottom))}}
+#pwa-upd{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top));z-index:10002;background:#1e3a8a;color:#dbeafe;border:1px solid #3b82f6;border-radius:12px;padding:12px 16px;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.6);font-weight:600;max-width:92vw;text-align:center}
+.ios-steps{margin:10px 0 0;padding-left:20px;line-height:1.7}
+.ios-steps b{color:var(--ac)}
 @media print{.side,.bnav,.btn,.seg{display:none!important}main{padding:0}body{background:#fff;color:#000}.card{border-color:#ccc;background:#fff}}
 </style>
 </head>
@@ -581,6 +606,7 @@ V.config=()=>{const C=S.config;const k=calc();const inp=(key,label,type='text',e
  <div class="grid g2" style="margin-top:12px">${inp('bancos','Bancos / cuentas (separados por coma)')}${inp('categoriasGasto','Categorías de gasto (separadas por coma)')}</div></div>
  <div class="card"><h2>Mensajes de WhatsApp</h2><div class="grid g2"><div class="fld"><label>Recordatorio de cobro ({cliente} {saldo} {vencido} {negocio})</label><textarea class="inp" rows="3" onchange="A.cfg('msgCobro',this.value)">${esc(C.msgCobro)}</textarea></div><div class="fld"><label>Confirmación de pedido ({cliente} {cantidad} {producto} {fecha} {total} {negocio})</label><textarea class="inp" rows="3" onchange="A.cfg('msgPedido',this.value)">${esc(C.msgPedido)}</textarea></div></div></div>
  ${AUTH.card()}
+ ${PWA.card()}
  <div class="card"><h2>💾 Datos y respaldo</h2><div class="row"><button class="btn p" onclick="A.exportJSON()">⬇️ Respaldo completo (JSON + fotos)</button><label class="btn">⬆️ Importar respaldo<input type="file" accept=".json,application/json" style="display:none" onchange="A.importJSON(this)"></label><button class="btn" onclick="A.excel('todo')">⬇️ Excel completo</button><button class="btn" onclick="A.csvVentas(true)">⬇️ CSV ventas</button><button class="btn" onclick="A.csvGastos()">⬇️ CSV gastos</button></div>
  <div class="row" style="margin-top:12px"><button class="btn" onclick="A.demo()">🧪 Cargar datos de ejemplo</button><button class="btn d" onclick="A.reset()">🗑 Borrar todos los datos</button></div>
  <div class="sm mu" style="margin-top:10px">Último guardado: ${S.actualizado?new Date(S.actualizado).toLocaleString('es-PA'):'—'} · Registros: ${S.ventas.length} ventas, ${S.facturas.length} facturas, ${S.gastos.length} gastos, ${S.clientes.length} clientes. Los datos viven solo en este navegador/dispositivo: haz respaldo semanal.</div></div>`};
@@ -718,7 +744,55 @@ const AUTH={
   <div class="row" style="margin-top:10px"><button class="btn p" onclick="AUTH.cambiar()">Cambiar contraseña / correo</button></div></div>`}
 };
 
-document.addEventListener('DOMContentLoaded',()=>AUTH.gate(iniciar));
+/* ===================== App instalable (PWA) =====================
+   Android/Chrome: beforeinstallprompt. iPhone/iPad Safari: instrucciones (Compartir → Agregar a pantalla de inicio).
+   No toca los datos (localStorage / IndexedDB) ni el acceso. */
+const PWA={
+ deferred:null,reg:null,_recargando:false,
+ standalone(){return (window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true},
+ ios(){const ua=navigator.userAgent||'';return /iPad|iPhone|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)},
+ iosNoSafari(){const ua=navigator.userAgent||'';return PWA.ios()&&/CriOS|FxiOS|EdgiOS|OPiOS|GSA|Instagram|FBAN|FBAV/.test(ua)},
+ puede(){return !PWA.standalone()&&(!!PWA.deferred||PWA.ios())},
+ oculto(){try{return sessionStorage.getItem('pipaco_pwa_x')==='1'}catch(e){return false}},
+ boton(){let b=document.getElementById('pwa-inst');
+  if(!PWA.puede()||PWA.oculto()){if(b)b.remove();return}
+  if(!b){b=document.createElement('div');b.id='pwa-inst';b.innerHTML='<button type="button" onclick="PWA.instalar()">📲 Instalar app</button><button type="button" class="x" aria-label="Ocultar" onclick="PWA.ocultar()">✕</button>';document.body.appendChild(b)}},
+ ocultar(){try{sessionStorage.setItem('pipaco_pwa_x','1')}catch(e){}PWA.boton()},
+ async instalar(){
+  if(PWA.deferred){const ev=PWA.deferred;PWA.deferred=null;ev.prompt();try{const r=await ev.userChoice;if(r&&r.outcome==='accepted')toast('✅ Instalando PipaCo en tu pantalla de inicio')}catch(e){}PWA.boton();PWA.refrescarCard();return}
+  if(PWA.ios())return PWA.instruccionesIOS();
+  toast('Abre el menú ⋮ del navegador y elige “Instalar app” o “Agregar a pantalla de inicio”.')},
+ instruccionesIOS(){const m=document.createElement('div');m.className='modal-bg';m.id='pwa-ios';m.style.zIndex='10003';m.onclick=e=>{if(e.target===m)m.remove()};
+  m.innerHTML=`<div class="modal" style="max-width:420px"><h3><span>📲 Instalar en iPhone / iPad</span><button class="btn xs" onclick="document.getElementById('pwa-ios').remove()">✕</button></h3>
+  ${PWA.iosNoSafari()?'<div class="alert warn"><div class="t">Primero abre este enlace en <b>Safari</b> (en otros navegadores del iPhone no siempre aparece la opción).</div></div>':''}
+  <ol class="ios-steps"><li>Toca <b>Compartir</b> <span style="font-size:18px">⎋</span> (el cuadrito con la flecha ↑, abajo o arriba en Safari).</li><li>Baja y toca <b>Agregar a pantalla de inicio</b> ➕.</li><li>Toca <b>Agregar</b>. El ícono 🥥 PipaCo aparece en tu pantalla.</li></ol>
+  <div class="sm mu" style="margin-top:10px">Ábrela siempre desde ese ícono. La primera vez te pedirá crear tu acceso en la app instalada (en iPhone la app guarda sus datos aparte de Safari; si ya tenías datos en Safari, haz un respaldo y luego impórtalo en la app).</div>
+  <button class="btn p" style="width:100%;justify-content:center;margin-top:12px" onclick="document.getElementById('pwa-ios').remove()">Entendido</button></div>`;
+  document.body.appendChild(m)},
+ card(){const inst=PWA.standalone();return`<div class="card" id="pwa-card"><h2>📲 App en el teléfono</h2>${inst?'<div class="sm"><span class="tag ok">Instalada</span> Estás usando PipaCo como app. Funciona sin internet.</div>':
+  `<div class="sm mu" style="margin-bottom:10px">Instala PipaCo en tu pantalla de inicio: se abre como app, a pantalla completa y sin internet.</div><div class="row"><button class="btn p" onclick="PWA.instalar()">📲 Instalar app</button></div>
+  <div class="sm mu" style="margin-top:10px"><b>Android:</b> botón “Instalar app” o menú ⋮ → Instalar app. <b>iPhone:</b> en Safari, Compartir → Agregar a pantalla de inicio.</div>`}</div>`},
+ refrescarCard(){const c=document.getElementById('pwa-card');if(c)c.outerHTML=PWA.card()},
+ aviso(w){if(document.getElementById('pwa-upd'))return;const d=document.createElement('div');d.id='pwa-upd';d.setAttribute('role','button');d.textContent='🔄 Hay una nueva versión, toca para actualizar';
+  d.onclick=()=>{d.textContent='Actualizando…';PWA._recargando=true;const t=(PWA.reg&&PWA.reg.waiting)||w;if(t)t.postMessage({type:'SKIP_WAITING'});else location.reload()};document.body.appendChild(d)},
+ registrar(){
+  if(!('serviceWorker' in navigator)||!/^https?:$/.test(location.protocol))return;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(PWA._recargando){PWA._recargando=false;location.reload()}});
+  navigator.serviceWorker.register('sw.js').then(reg=>{PWA.reg=reg;
+   const vigilar=w=>{if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)PWA.aviso(w)})};
+   if(reg.waiting&&navigator.serviceWorker.controller)PWA.aviso(reg.waiting);
+   vigilar(reg.installing);reg.addEventListener('updatefound',()=>vigilar(reg.installing));
+   const buscar=()=>reg.update().catch(()=>{});setInterval(buscar,30*60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)buscar()})
+  }).catch(e=>console.warn('SW no registrado:',e&&e.message))},
+ init(){
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();PWA.deferred=e;PWA.boton();PWA.refrescarCard()});
+  window.addEventListener('appinstalled',()=>{PWA.deferred=null;PWA.boton();PWA.refrescarCard()});
+  if(window.matchMedia){const mq=matchMedia('(display-mode: standalone)');mq.addEventListener&&mq.addEventListener('change',()=>{PWA.boton();PWA.refrescarCard()})}
+  PWA.boton();
+  if(document.readyState==='complete')PWA.registrar();else window.addEventListener('load',PWA.registrar)}
+};
+
+document.addEventListener('DOMContentLoaded',()=>{AUTH.gate(iniciar);try{PWA.init()}catch(e){console.warn(e)}});
 
 </script>
 </body>
