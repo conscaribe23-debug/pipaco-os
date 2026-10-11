@@ -1,0 +1,7 @@
+{
+  "versionCode": 2,
+  "versionName": "2.2.0",
+  "apkUrl": "https://github.com/conscaribe23-debug/pipaco-os/releases/download/v2.2.0/PipaCo-v2.2.0.apk",
+  "sha256": "3158c5594a589678b305c4c8d77df6e8fb738b0c7382aebe6bf16252be147185",
+  "notes": "Bloqueo con huella o PIN del teléfono al abrir la app. Actualizaciones dentro de la app (Configuración → Buscar actualización)."
+}
