@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="pipaco_bg">#09090B</color>
-    <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
+    <!-- AppCompat: androidx.biometric usa AlertDialog de AppCompat para la huella en Android 7–9 -->
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">#09090B</item>
+        <item name="colorPrimaryDark">#09090B</item>
+        <item name="colorAccent">#FBBF24</item>
         <item name="android:windowBackground">@color/pipaco_bg</item>
-        <item name="android:colorPrimary">#09090B</item>
-        <item name="android:colorPrimaryDark">#09090B</item>
-        <item name="android:colorAccent">#FBBF24</item>
         <item name="android:statusBarColor">#09090B</item>
         <item name="android:navigationBarColor">#18181B</item>
     </style>

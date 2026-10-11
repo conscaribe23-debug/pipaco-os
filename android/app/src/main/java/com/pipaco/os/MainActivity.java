@@ -85,6 +85,9 @@ public class MainActivity extends FragmentActivity {
         root.setBackgroundColor(Color.parseColor("#09090b"));
         root.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         cover = crearPantallaBloqueo();
+        prompt = crearPrompt(); // BiometricPrompt se crea en onCreate (requisito de androidx.biometric)
+        coverDiag.setText(diagnostico());
+        registrar(savedInstanceState == null ? "app abierta (bloqueada)" : "app recreada (bloqueada)");
         root.addView(cover, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         web.setVisibility(View.INVISIBLE);
         setContentView(root);
@@ -144,14 +147,23 @@ public class MainActivity extends FragmentActivity {
         pendingState = savedInstanceState;
     }
 
-    // ===================== Bloqueo biométrico =====================
+    // ===================== Bloqueo biométrico (2.2.1) =====================
+    // Reglas: la app SOLO se abre con (a) éxito de BiometricPrompt, (b) éxito del PIN/patrón del
+    // teléfono (KeyguardManager), (c) teléfono SIN bloqueo de pantalla (con aviso visible), o
+    // (d) botón explícito "Entrar con correo y contraseña" tras un error (cierra la sesión interna).
+    private static final int REQ_KEYGUARD = 7;
+    private BiometricPrompt prompt;
+    private TextView coverDiag;
+    private Button btnPin, btnCorreo;
+    private int fallos = 0;
+
     private LinearLayout crearPantallaBloqueo() {
         float d = getResources().getDisplayMetrics().density;
         LinearLayout l = new LinearLayout(this);
         l.setOrientation(LinearLayout.VERTICAL);
         l.setGravity(Gravity.CENTER);
         l.setBackgroundColor(Color.parseColor("#09090b"));
-        l.setPadding((int) (32 * d), 0, (int) (32 * d), 0);
+        l.setPadding((int) (28 * d), 0, (int) (28 * d), 0);
         l.setClickable(true); // bloquea toques al WebView de abajo
         ImageView ic = new ImageView(this);
         ic.setImageDrawable(ContextCompat.getDrawable(this, R.mipmap.ic_launcher));
@@ -165,20 +177,22 @@ public class MainActivity extends FragmentActivity {
         l.addView(t);
         coverMsg = new TextView(this);
         coverMsg.setText("🔒 App bloqueada");
-        coverMsg.setTextColor(Color.parseColor("#a1a1aa"));
+        coverMsg.setTextColor(Color.parseColor("#e4e4e7"));
         coverMsg.setTextSize(15);
         coverMsg.setGravity(Gravity.CENTER);
-        coverMsg.setPadding(0, 0, 0, (int) (20 * d));
+        coverMsg.setPadding(0, 0, 0, (int) (18 * d));
         l.addView(coverMsg);
-        coverBtn = new Button(this);
-        coverBtn.setText("🔓 Desbloquear");
-        coverBtn.setAllCaps(false);
-        coverBtn.setTextSize(17);
-        coverBtn.setTextColor(Color.parseColor("#111111"));
-        coverBtn.setBackgroundColor(Color.parseColor("#fbbf24"));
-        coverBtn.setPadding((int) (28 * d), (int) (12 * d), (int) (28 * d), (int) (12 * d));
-        coverBtn.setOnClickListener(v -> pedirDesbloqueo());
+        coverBtn = boton("🔓 Desbloquear", true, d);
+        coverBtn.setOnClickListener(v -> reintentar());
         l.addView(coverBtn);
+        btnPin = boton("🔢 Usar PIN / patrón del teléfono", false, d);
+        btnPin.setOnClickListener(v -> { autoPrompt = false; cancelarPrompt(); usarCredencialTelefono(); });
+        btnPin.setVisibility(View.GONE);
+        l.addView(btnPin);
+        btnCorreo = boton("✉️ Entrar con correo y contraseña de PipaCo", false, d);
+        btnCorreo.setOnClickListener(v -> { cancelarPrompt(); desbloquear("correo y contraseña (alternativa)", true); });
+        btnCorreo.setVisibility(View.GONE);
+        l.addView(btnCorreo);
         Button salir = new Button(this);
         salir.setText("Salir");
         salir.setAllCaps(false);
@@ -186,7 +200,56 @@ public class MainActivity extends FragmentActivity {
         salir.setBackgroundColor(Color.TRANSPARENT);
         salir.setOnClickListener(v -> finish());
         l.addView(salir);
+        coverDiag = new TextView(this);
+        coverDiag.setTextColor(Color.parseColor("#71717a"));
+        coverDiag.setTextSize(11);
+        coverDiag.setGravity(Gravity.CENTER);
+        coverDiag.setPadding(0, (int) (18 * d), 0, 0);
+        l.addView(coverDiag);
         return l;
+    }
+
+    private Button boton(String txt, boolean principal, float d) {
+        Button b = new Button(this);
+        b.setText(txt);
+        b.setAllCaps(false);
+        b.setTextSize(principal ? 17 : 14);
+        b.setTextColor(Color.parseColor(principal ? "#111111" : "#f4f4f5"));
+        b.setBackgroundColor(Color.parseColor(principal ? "#fbbf24" : "#202024"));
+        b.setPadding((int) (22 * d), (int) (12 * d), (int) (22 * d), (int) (12 * d));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = (int) (8 * d);
+        b.setLayoutParams(lp);
+        return b;
+    }
+
+    private BiometricPrompt crearPrompt() {
+        return new BiometricPrompt(this, ContextCompat.getMainExecutor(this), new BiometricPrompt.AuthenticationCallback() {
+            @Override
+            public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult r) {
+                authInProgress = false;
+                int tipo = r.getAuthenticationType();
+                desbloquear(tipo == BiometricPrompt.AUTHENTICATION_RESULT_TYPE_BIOMETRIC ? "huella"
+                        : tipo == BiometricPrompt.AUTHENTICATION_RESULT_TYPE_DEVICE_CREDENTIAL ? "PIN/patrón del teléfono" : "desbloqueo del teléfono (tipo " + tipo + ")", false);
+            }
+            @Override
+            public void onAuthenticationError(int code, CharSequence msg) {
+                authInProgress = false;
+                autoPrompt = false; // nunca reabrir solo en bucle
+                registrar("BiometricPrompt error " + code + ": " + msg);
+                if (!locked) return;
+                if (code == BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL && !pantallaConBloqueo()) { pedirDesbloqueo(); return; }
+                boolean cancel = code == BiometricPrompt.ERROR_USER_CANCELED || code == BiometricPrompt.ERROR_NEGATIVE_BUTTON
+                        || code == BiometricPrompt.ERROR_CANCELED;
+                if (cancel) { mostrarError("Desbloqueo cancelado (código " + code + "). Toca “Desbloquear” para intentar de nuevo.", false); return; }
+                fallos++;
+                mostrarError("No se pudo usar la huella (error " + code + ": " + msg + ").", true);
+                // Errores irrecuperables (bloqueo por intentos, sensor no disponible, sin huellas…): ir al PIN del teléfono.
+                if (code != BiometricPrompt.ERROR_TIMEOUT) usarCredencialTelefono();
+            }
+            @Override
+            public void onAuthenticationFailed() { registrar("huella no reconocida (se puede reintentar)"); }
+        });
     }
 
     private boolean pantallaConBloqueo() {
@@ -194,10 +257,68 @@ public class MainActivity extends FragmentActivity {
         return km != null && km.isDeviceSecure();
     }
 
-    private int autenticadores() {
-        return BiometricManager.Authenticators.BIOMETRIC_STRONG
-                | BiometricManager.Authenticators.BIOMETRIC_WEAK
-                | BiometricManager.Authenticators.DEVICE_CREDENTIAL;
+    private static String nombreCan(int c) {
+        switch (c) {
+            case BiometricManager.BIOMETRIC_SUCCESS: return "lista";
+            case BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED: return "sin registrar";
+            case BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE: return "sin sensor";
+            case BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE: return "sensor no disponible";
+            case BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED: return "requiere actualización";
+            case BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED: return "no soportado";
+            default: return "desconocido";
+        }
+    }
+
+    private int canHuella() {
+        BiometricManager bm = BiometricManager.from(this);
+        try {
+            return Build.VERSION.SDK_INT >= 30 ? bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) : bm.canAuthenticate();
+        } catch (Throwable e) { return -99; }
+    }
+
+    private int canDebil() {
+        try { return BiometricManager.from(this).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK); }
+        catch (Throwable e) { return -99; }
+    }
+
+    private int canHuellaOPin() {
+        try {
+            return BiometricManager.from(this).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG
+                    | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
+        } catch (Throwable e) { return -99; }
+    }
+
+    String diagnostico() {
+        int h = canHuella();
+        String s = "PipaCo " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ") · " + Build.MANUFACTURER + " " + Build.MODEL
+                + " · Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")"
+                + "\nBloqueo de pantalla: " + (pantallaConBloqueo() ? "sí" : "NO")
+                + " · Huella: " + nombreCan(h) + " (" + h + ")";
+        if (Build.VERSION.SDK_INT >= 30) {
+            int w = canDebil(), c = canHuellaOPin();
+            s += " · Biometría débil: " + nombreCan(w) + " (" + w + ") · Huella/PIN: " + nombreCan(c) + " (" + c + ")";
+        }
+        return s;
+    }
+
+    private void registrar(String ev) {
+        android.content.SharedPreferences p = getSharedPreferences("pipaco_lock", MODE_PRIVATE);
+        String linea = new java.text.SimpleDateFormat("dd/MM HH:mm:ss", java.util.Locale.US).format(new java.util.Date()) + " " + ev;
+        String prev = p.getString("log", "");
+        String all = linea + (prev.isEmpty() ? "" : "\n" + prev);
+        String[] ls = all.split("\n");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < Math.min(20, ls.length); i++) sb.append(i > 0 ? "\n" : "").append(ls[i]);
+        p.edit().putString("log", sb.toString()).apply();
+    }
+
+    String registro() { return getSharedPreferences("pipaco_lock", MODE_PRIVATE).getString("log", ""); }
+
+    private void mostrarError(String msg, boolean conAlternativas) {
+        coverMsg.setText("🔒 " + msg);
+        coverDiag.setText(diagnostico());
+        if (pantallaConBloqueo()) btnPin.setVisibility(View.VISIBLE);
+        if (conAlternativas || fallos > 0 || !pantallaConBloqueo()) btnCorreo.setVisibility(View.VISIBLE);
     }
 
     private void bloquear() {
@@ -206,11 +327,18 @@ public class MainActivity extends FragmentActivity {
         cover.setVisibility(View.VISIBLE);
         web.setVisibility(View.INVISIBLE);
         coverMsg.setText("🔒 App bloqueada");
+        coverDiag.setText(diagnostico());
+        btnPin.setVisibility(View.GONE);
+        btnCorreo.setVisibility(View.GONE);
+        registrar("bloqueada (volvió tras más de 1 min)");
     }
 
-    private void desbloquear() {
+    private void desbloquear(String metodo, boolean forzarLoginInterno) {
+        if (!locked) return;
         locked = false;
         authInProgress = false;
+        fallos = 0;
+        registrar("desbloqueada con " + metodo);
         cover.setVisibility(View.GONE);
         web.setVisibility(View.VISIBLE);
         if (!contentLoaded) {
@@ -218,19 +346,35 @@ public class MainActivity extends FragmentActivity {
             if (pendingState != null) web.restoreState(pendingState);
             else web.loadUrl(START);
             pendingState = null;
+        } else if (forzarLoginInterno) {
+            js("try{sessionStorage.removeItem('pipaco_ses_v1');AUTH.cerrarSesion()}catch(e){}");
         }
+        Toast.makeText(this, "🔓 Desbloqueado con " + metodo, Toast.LENGTH_SHORT).show();
+    }
+
+    private void cancelarPrompt() {
+        if (prompt != null && authInProgress) { try { prompt.cancelAuthentication(); } catch (Throwable ignored) { } }
+        authInProgress = false;
+    }
+
+    private void reintentar() {
+        cancelarPrompt(); // si quedó un intento "colgado", se reinicia
+        autoPrompt = false;
+        pedirDesbloqueo();
     }
 
     private void pedirDesbloqueo() {
-        if (authInProgress || !locked) return;
-        // Sin PIN/patrón/contraseña en el teléfono: se abre, pero recomendamos configurarlo.
+        if (!locked || authInProgress || isFinishing()) return;
+        coverDiag.setText(diagnostico());
+        // Único caso que abre sin verificar: el teléfono NO tiene PIN/patrón/contraseña (aviso visible).
         if (!pantallaConBloqueo()) {
-            desbloquear();
+            final String diag = diagnostico();
+            desbloquear("teléfono sin bloqueo de pantalla", false);
             if (!noLockNoticeShown) {
                 noLockNoticeShown = true;
                 new AlertDialog.Builder(this)
-                        .setTitle("Protege tu teléfono")
-                        .setMessage("Tu teléfono no tiene bloqueo de pantalla. Te recomendamos configurar un PIN, patrón o huella en Ajustes → Seguridad para que nadie más pueda abrir PipaCo.")
+                        .setTitle("⚠️ Tu teléfono no tiene bloqueo de pantalla")
+                        .setMessage("Por eso PipaCo no puede pedir tu huella y se abrió solo con tu correo y contraseña.\n\nConfigura un PIN, patrón o huella en Ajustes → Seguridad para proteger PipaCo.\n\n" + diag)
                         .setPositiveButton("Ir a Ajustes", (dd, w) -> {
                             try { startActivity(new Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS)); } catch (Exception ignored) { }
                         })
@@ -239,51 +383,73 @@ public class MainActivity extends FragmentActivity {
             }
             return;
         }
+        if (getSupportFragmentManager().isStateSaved()) { registrar("aplazado: actividad no lista"); return; }
         BiometricPrompt.PromptInfo.Builder b = new BiometricPrompt.PromptInfo.Builder()
                 .setTitle("Desbloquear PipaCo")
                 .setSubtitle("Usa tu huella o el PIN del teléfono")
-                .setConfirmationRequired(false);
+                .setConfirmationRequired(true); // nunca aceptar un desbloqueo pasivo (p. ej. rostro) sin confirmar
         if (Build.VERSION.SDK_INT >= 30) {
-            b.setAllowedAuthenticators(autenticadores());
+            int c = canHuellaOPin();
+            if (c != BiometricManager.BIOMETRIC_SUCCESS) {
+                registrar("canAuthenticate(huella|PIN)=" + c + " → PIN del teléfono");
+                usarCredencialTelefono();
+                return;
+            }
+            // Preferir huella "fuerte"; si el teléfono solo tiene biometría "débil", usarla pero con confirmación explícita.
+            int bio = canHuella() == BiometricManager.BIOMETRIC_SUCCESS ? BiometricManager.Authenticators.BIOMETRIC_STRONG
+                    : canDebil() == BiometricManager.BIOMETRIC_SUCCESS ? BiometricManager.Authenticators.BIOMETRIC_WEAK : 0;
+            b.setAllowedAuthenticators(bio | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
         } else {
-            // Android 7–10: huella si hay, si no PIN/patrón/contraseña (KeyguardManager vía androidx.biometric).
+            int h = canHuella();
+            if (h != BiometricManager.BIOMETRIC_SUCCESS) {
+                registrar("canAuthenticate()=" + h + " → PIN del teléfono");
+                usarCredencialTelefono();
+                return;
+            }
             b.setDeviceCredentialAllowed(true);
         }
-        BiometricPrompt prompt = new BiometricPrompt(this, ContextCompat.getMainExecutor(this),
-                new BiometricPrompt.AuthenticationCallback() {
-                    @Override
-                    public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult r) {
-                        desbloquear();
-                    }
-                    @Override
-                    public void onAuthenticationError(int code, CharSequence msg) {
-                        authInProgress = false;
-                        if (code == BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL && !pantallaConBloqueo()) {
-                            pedirDesbloqueo(); // se abre con aviso
-                            return;
-                        }
-                        boolean cancel = code == BiometricPrompt.ERROR_USER_CANCELED
-                                || code == BiometricPrompt.ERROR_NEGATIVE_BUTTON
-                                || code == BiometricPrompt.ERROR_CANCELED;
-                        autoPrompt = false; // no volver a abrir solo: el usuario toca Desbloquear o Salir
-                        coverMsg.setText(cancel ? "🔒 Toca “Desbloquear” para entrar" : "🔒 " + msg);
-                    }
-                    @Override
-                    public void onAuthenticationFailed() { /* el diálogo deja reintentar */ }
-                });
-        authInProgress = true;
         try {
+            authInProgress = true;
+            registrar("mostrando BiometricPrompt");
             prompt.authenticate(b.build());
-        } catch (Exception e) {
+        } catch (Throwable e) {
             authInProgress = false;
-            coverMsg.setText("🔒 No se pudo mostrar el desbloqueo: " + e.getMessage());
+            fallos++;
+            registrar("excepción BiometricPrompt: " + e);
+            mostrarError("No se pudo mostrar la huella (" + e.getClass().getSimpleName() + ": " + e.getMessage() + ").", true);
+            usarCredencialTelefono();
+        }
+    }
+
+    /** Respaldo: pantalla de PIN/patrón/contraseña del sistema (KeyguardManager). */
+    @SuppressWarnings("deprecation")
+    private void usarCredencialTelefono() {
+        if (!locked || isFinishing()) return;
+        KeyguardManager km = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+        Intent i = km == null ? null : km.createConfirmDeviceCredentialIntent("Desbloquear PipaCo", "Usa el PIN, patrón o contraseña del teléfono");
+        if (i == null) {
+            if (!pantallaConBloqueo()) { pedirDesbloqueo(); return; }
+            mostrarError("No se pudo abrir el PIN del teléfono.", true);
+            return;
+        }
+        try {
+            authInProgress = true;
+            registrar("mostrando PIN del teléfono (KeyguardManager)");
+            startActivityForResult(i, REQ_KEYGUARD);
+        } catch (Throwable e) {
+            authInProgress = false;
+            registrar("excepción KeyguardManager: " + e);
+            mostrarError("No se pudo abrir el PIN del teléfono (" + e.getClass().getSimpleName() + ").", true);
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (locked && !authInProgress && autoPrompt) pedirDesbloqueo();
+        if (locked && !authInProgress && autoPrompt) {
+            // Esperar a que la actividad esté realmente visible antes de mostrar el diálogo.
+            root.postDelayed(() -> { if (locked && !authInProgress && autoPrompt && !isFinishing()) { autoPrompt = false; pedirDesbloqueo(); } }, 250);
+        }
         if (!locked) updater.onResume();
     }
 
@@ -346,6 +512,12 @@ public class MainActivity extends FragmentActivity {
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (req == REQ_KEYGUARD) {
+            authInProgress = false;
+            if (res == RESULT_OK) desbloquear("PIN/patrón del teléfono", false);
+            else { registrar("PIN del teléfono cancelado (resultado " + res + ")"); mostrarError("Desbloqueo cancelado. Toca “Desbloquear” para intentar de nuevo.", true); }
+            return;
+        }
         if (req != REQ_FILE || fileCb == null) return;
         Uri[] out = null;
         if (res == RESULT_OK) {
@@ -361,6 +533,7 @@ public class MainActivity extends FragmentActivity {
 
     @Override
     public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(req, perms, res);
         boolean ok = res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED;
         if (req == REQ_CAM_PERM && pendingParams != null) {
             lanzarSelector(pendingParams, ok);
@@ -420,6 +593,8 @@ public class MainActivity extends FragmentActivity {
         }
         @JavascriptInterface
         public String version() { return BuildConfig.VERSION_NAME; }
+        @JavascriptInterface
+        public String diag() { return diagnostico() + "\n\nRegistro de desbloqueo:\n" + registro(); }
         @JavascriptInterface
         public int versionCode() { return BuildConfig.VERSION_CODE; }
         @JavascriptInterface
