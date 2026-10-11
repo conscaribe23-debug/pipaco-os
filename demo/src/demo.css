@@ -1,0 +1,48 @@
+/* ===== Demo pública: catálogo ===== */
+.demo{position:sticky;top:0;z-index:50}
+.hero{position:relative;border-radius:18px;overflow:hidden;margin-bottom:14px;min-height:200px;background:#18181b center/cover no-repeat}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(9,9,11,.92) 0%,rgba(9,9,11,.65) 55%,rgba(9,9,11,.25) 100%)}
+.hero .in{position:relative;z-index:1;padding:22px 20px}
+.hero h1{margin:0;font-size:34px;color:var(--ac);display:flex;align-items:center;gap:10px}
+.hero h1 .coco{font-size:34px;background:#14532d;border-radius:14px;width:52px;height:52px;display:grid;place-items:center}
+.hero p{margin:8px 0 0;color:#e4e4e7;max-width:520px;line-height:1.45}
+.hero .cta{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none;position:sticky;top:44px;z-index:5;background:var(--bg)}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:999px;padding:9px 16px;font-weight:600;font-size:14px;cursor:pointer}
+.tabs button.on{background:var(--ac);color:#18181b;border-color:var(--ac)}
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.pcard{background:var(--card);border:1px solid var(--bd);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;transition:transform .15s,border-color .15s}
+.pcard:hover{transform:translateY(-2px);border-color:#3f3f46}
+.pcard .img{position:relative;aspect-ratio:4/3;background:#27272a}
+.pcard .img img{width:100%;height:100%;object-fit:cover;display:block}
+.pcard .img .badge2{position:absolute;left:10px;top:10px;background:rgba(9,9,11,.75);color:#fde68a;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;backdrop-filter:blur(4px)}
+.pcard .body{padding:14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.pcard h3{margin:0;font-size:17px}
+.pcard .d{color:#a1a1aa;font-size:13.5px;line-height:1.4;flex:1}
+.pcard .pr{display:flex;align-items:baseline;gap:6px;margin-top:4px}
+.pcard .pr b{font-size:22px;color:var(--ac)}
+.pcard .pr span{font-size:12px;color:#a1a1aa}
+.pcard .act{display:flex;gap:8px;align-items:center;margin-top:8px}
+.qty{display:flex;align-items:center;border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+.qty button{background:#27272a;border:0;color:var(--tx);width:38px;height:38px;font-size:20px;cursor:pointer}
+.qty span{min-width:38px;text-align:center;font-weight:700}
+.cartbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:40;width:min(560px,calc(100% - 20px));background:#fbbf24;color:#18181b;border-radius:16px;padding:10px 12px 10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 12px 30px rgba(0,0,0,.55);font-weight:700}
+.cartbar .btn{background:#18181b;color:#fbbf24;border-color:#18181b}
+@media(min-width:900px){.cartbar{bottom:20px}}
+.credits{font-size:11.5px;color:#71717a;line-height:1.6;margin:22px 0 90px;text-align:center}
+.credits a{color:#a1a1aa}
+.demo{display:flex!important;align-items:center;gap:8px;flex-wrap:nowrap!important;padding:8px 12px!important;font-size:12.5px;line-height:1.25;border-radius:12px;margin-bottom:10px}
+.demo b{white-space:normal}
+.demo .btn{flex:0 0 auto}
+@media(max-width:560px){
+ .hero{min-height:0}.hero .in{padding:16px 14px}.hero h1{font-size:28px}.hero h1 .coco{width:42px;height:42px;font-size:26px}
+ .hero p{font-size:13.5px}.hero .cta .btn{padding:8px 12px;font-size:13px}
+ .cat-grid{grid-template-columns:1fr 1fr;gap:10px}
+ .pcard{border-radius:14px}.pcard .body{padding:10px;gap:4px}.pcard h3{font-size:14.5px;line-height:1.25}
+ .pcard .d{font-size:12px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+ .pcard .pr b{font-size:18px}.pcard .pr{flex-wrap:wrap;gap:2px 6px}.pcard .pr span{font-size:10.5px}
+ .pcard .act .btn{padding:9px 6px;font-size:13.5px}.qty button{width:34px;height:34px}.qty span{min-width:28px}
+ .pcard .act{flex-wrap:wrap}.pcard .act .sm{font-size:11px}
+ .cartbar{font-size:13px;padding:8px 8px 8px 12px;gap:6px}.cartbar .btn{padding:8px 10px;font-size:13px}
+}

@@ -38,6 +38,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // WhatsApp, etc.: no se tocan
+  if (url.pathname.includes('/demo/') || url.pathname.endsWith('/demo')) return; // la demo pública es independiente: la red la sirve tal cual
 
   // Páginas: la versión guardada de ESTA versión de la app (rápida y sin internet).
   if (req.mode === 'navigate') {
